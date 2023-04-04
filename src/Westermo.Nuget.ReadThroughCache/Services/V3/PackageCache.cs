@@ -77,6 +77,8 @@ public class PackageCache : IPackageCache
                 return packageStream;
             }
 
+            m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nupkg locally", packageId, packageVersion);
+
             // Check again - someone may have acquired the package contents already while we were waiting
             // for the write lock!
             packageStream = await m_localPackageCache.GetPackageContent(packageId, packageVersion, cancellationToken);
@@ -85,19 +87,24 @@ public class PackageCache : IPackageCache
                 m_logger.LogDebug("Found {PackageId}.{PackageVersion}.nupkg locally", packageId, packageVersion);
                 return packageStream;
             }
+            
+            m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nupkg locally (second retry)", packageId, packageVersion);
 
             var remotePackageStream = await GetFromFirstRemote(
                 async remotePackageRepository =>
                 {
                     var stream = await remotePackageRepository.GetPackageContent(packageId, packageVersion, cancellationToken);
-                    if (stream != null)
-                        m_logger.LogDebug("Found {PackageId}.{PackageVersion}.nupkg in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex})",
-                                          packageId, packageVersion, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);                        
+                    m_logger.LogDebug(
+                        stream != null
+                            ? "Found {PackageId}.{PackageVersion}.nupkg in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex})"
+                            : "Did not find {PackageId}.{PackageVersion}.nupkg locally in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex}",
+                        packageId, packageVersion, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);
                     return stream;
                 });
             
             if (remotePackageStream != null)
             {
+                m_logger.LogDebug("Updating local package cache for {PackageId}.{PackageVersion}.nupkg", packageId, packageVersion);
                 await m_localPackageCache.SetPackageContent(packageId, packageVersion, remotePackageStream);
                 packageStream = await m_localPackageCache.GetPackageContent(packageId, packageVersion, cancellationToken);
             }
@@ -117,6 +124,8 @@ public class PackageCache : IPackageCache
                 m_logger.LogDebug("Found {PackageId}.{PackageVersion}.nuspec locally", packageId, packageVersion);
                 return nuspecStream;
             }
+            
+            m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nuspec locally", packageId, packageVersion);
 
             // Check again - someone may have acquired the package contents already while we were waiting
             // for the write lock!
@@ -126,19 +135,24 @@ public class PackageCache : IPackageCache
                 m_logger.LogDebug("Found {PackageId}.{PackageVersion}.nuspec locally", packageId, packageVersion);
                 return nuspecStream;
             }
+            
+            m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nuspec locally (second retry)", packageId, packageVersion);
 
             var remoteNuspecStream = await GetFromFirstRemote(
                 async remotePackageRepository =>
                 {
                     var stream = await remotePackageRepository.GetPackageNuspec(packageId, packageVersion, cancellationToken);
-                    if (stream != null)
-                        m_logger.LogDebug("Found {PackageId}.{PackageVersion}.nuspec in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex})",
-                                          packageId, packageVersion, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);
+                    m_logger.LogDebug(
+                        stream != null
+                            ? "Found {PackageId}.{PackageVersion}.nuspec in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex})"
+                            : "Did not find {PackageId}.{PackageVersion}.nuspec in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex})",
+                        packageId, packageVersion, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);
                     return stream;
                 });
 
             if (remoteNuspecStream != null)
             {
+                m_logger.LogDebug("Updating local package cache for {PackageId}.{PackageVersion}.nuspec", packageId, packageVersion);
                 await m_localPackageCache.SetPackageNuspec(packageId, packageVersion, remoteNuspecStream);
                 nuspecStream = await m_localPackageCache.GetPackageNuspec(packageId, packageVersion, cancellationToken);
             }
@@ -151,11 +165,12 @@ public class PackageCache : IPackageCache
     {
         foreach (var remotePackageRepository in m_remotePackageRepositories)
         {
+            m_logger.LogDebug("Testing remote index {Index}", remotePackageRepository.ServiceIndex);
             var value = await action(remotePackageRepository);
             if (value != null)
                 return value;
         }
-
+        
         return default;
     }
 }

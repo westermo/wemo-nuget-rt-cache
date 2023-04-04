@@ -17,4 +17,6 @@ ENV Logging__Console__FormatterName=""
 
 VOLUME /cache-root
 
+WORKDIR /app
+
 ENTRYPOINT ["/app/Westermo.Nuget.ReadThroughCache"]

@@ -56,13 +56,18 @@ public class RemotePackageRepository : IRemotePackageRepository
     {
         try
         {
+            m_logger.LogDebug("About to get remote v3 versions for {PackageId}", packageId);
             var serviceIndex = await GetServiceIndex(cancellationToken);
             var endpoint = serviceIndex.Resources
                                        .FirstOrDefault(r => r.Type == "PackageBaseAddress/3.0.0")
                            ?? throw new ApplicationException($"{ServiceIndex} does not support 'PackageBaseAddress/3.0.0'");
+            
+            m_logger.LogDebug("Endpoint for package {PackageId} (v3): {Endpoint}", packageId, endpoint.Id);
 
             var uri = new Uri($"{endpoint.Id.TrimEnd('/')}/{packageId}/index.json", UriKind.Absolute);
             var versionCollection = await m_httpClient.GetAsJson<VersionCollection>(uri, cancellationToken);
+            
+            m_logger.LogDebug("Versions for package {PackageId} (v3): {Versions}", packageId, string.Join(", ", versionCollection.Versions));
             return versionCollection.Versions;
         }
         catch (Exception ex)
@@ -81,18 +86,27 @@ public class RemotePackageRepository : IRemotePackageRepository
     {
         try
         {
+            m_logger.LogDebug("About to get remote v3 package content for {PackageId}", packageId);
             var serviceIndex = await GetServiceIndex(cancellationToken);
             var endpoint = serviceIndex.Resources
                                        .FirstOrDefault(r => r.Type == "PackageBaseAddress/3.0.0")
                            ?? throw new ApplicationException($"{ServiceIndex} does not support 'PackageBaseAddress/3.0.0'");
+            
+            m_logger.LogDebug("Endpoint for package {PackageId} (v3): {Endpoint}", packageId, endpoint.Id);
 
             var uri = new Uri($"{endpoint.Id.TrimEnd('/')}/{packageId}/{packageVersion}/{packageId}.{packageVersion}.nupkg", UriKind.Absolute);
             var response = await m_httpClient.Get(uri, cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                m_logger.LogDebug("Endpoint for package/content {PackageId} (v3): {Endpoint} - HTTP 404", packageId, uri);
                 return null;
+            }
 
             if (response.StatusCode != HttpStatusCode.OK)
+            {
+                m_logger.LogDebug("Endpoint for package/content {PackageId} (v3): {Endpoint} - HTTP {StatusCode}", packageId, uri, response.StatusCode.ToString("D"));
                 throw new ApplicationException($"Unexpected response HTTP {response.StatusCode:D} from {uri}");
+            }
 
             return await response.Content.ReadAsStreamAsync(cancellationToken);
         }
@@ -112,18 +126,28 @@ public class RemotePackageRepository : IRemotePackageRepository
     {
         try
         {
+            m_logger.LogDebug("About to get remote v3 package nuspec for {PackageId}", packageId);
+            
             var serviceIndex = await GetServiceIndex(cancellationToken);
             var endpoint = serviceIndex.Resources
                                        .FirstOrDefault(r => r.Type == "PackageBaseAddress/3.0.0")
                            ?? throw new ApplicationException($"{ServiceIndex} does not support 'PackageBaseAddress/3.0.0'");
 
+            m_logger.LogDebug("Endpoint for package {PackageId} (v3): {Endpoint}", packageId, endpoint.Id);
+            
             var uri = new Uri($"{endpoint.Id.TrimEnd('/')}/{packageId}/{packageVersion}/{packageId}.nuspec", UriKind.Absolute);
             var response = await m_httpClient.Get(uri, cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                m_logger.LogDebug("Endpoint for package/nuspec {PackageId} (v3): {Endpoint} - HTTP 404", packageId, uri);
                 return null;
+            }
 
             if (response.StatusCode != HttpStatusCode.OK)
+            {
+                m_logger.LogDebug("Endpoint for package/nuspec {PackageId} (v3): {Endpoint} - HTTP {StatusCode}", packageId, uri, response.StatusCode.ToString("D"));
                 throw new ApplicationException($"Unexpected response HTTP {response.StatusCode:D} from {uri}");
+            }
 
             return await response.Content.ReadAsStreamAsync(cancellationToken);
         }

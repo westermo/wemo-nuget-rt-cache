@@ -59,6 +59,11 @@ public class PackageCache : IPackageCache
                                       packageId, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);
                     await m_localPackageCache.SetPackageInformation(packageId, remotePackages);
                 }
+                else
+                {
+                    m_logger.LogDebug("Did not get package information for {PackageId} from {RemoteRepositoryName} ({RemoteRepositoryServiceIndex})",
+                                      packageId, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);
+                }
             }
 
             var packages = await m_localPackageCache.GetPackageInformation(packageId, semVerLevel, cancellationToken);
@@ -81,6 +86,8 @@ public class PackageCache : IPackageCache
                 m_logger.LogDebug("Found {PackageId}.{PackageVersion}.nupkg locally", packageId, packageVersion);
                 return packageStream;
             }
+            
+            m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nupkg locally", packageId, packageVersion);
 
             // Check again - someone may have acquired the package contents already while we were waiting
             // for the write lock!
@@ -90,13 +97,15 @@ public class PackageCache : IPackageCache
                 m_logger.LogDebug("Found {PackageId}.{PackageVersion}.nupkg locally", packageId, packageVersion);
                 return packageStream;
             }
+            
+            m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nupkg locally (second retry)", packageId, packageVersion);
 
             var downloadUri = await m_localPackageCache.FindRemoteDownloadUrl(packageId, packageVersion, cancellationToken);
             if (downloadUri == null)
             {
                 m_logger.LogWarning("Did not find a remote download url for {PackageId}.{PackageVersion}", packageId, packageVersion);
                 return null;
-            }
+            } 
 
             var response = await m_httpClient.Get(downloadUri, cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound)
@@ -111,6 +120,7 @@ public class PackageCache : IPackageCache
                 return null;
             }
 
+            m_logger.LogDebug("Updating local package cache for {PackageId}.{PackageVersion}.nupkg", packageId, packageVersion);
             var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             await m_localPackageCache.SetPackageContent(packageId, packageVersion, stream);
 
