@@ -61,6 +61,8 @@ public class Program
             configurationOutput.AppendLine($"        ServiceIndex = {configItem.ServiceIndex}");
             if (configItem.Version != null)
                 configurationOutput.AppendLine($"        Version = {configItem.Version}");
+            configurationOutput.AppendLine($"        PreferredPackagePrefixes = {string.Join(", ", configItem.PreferredPackagePrefixes)}");
+            configurationOutput.AppendLine($"        DeniedPackagePrefixes = {string.Join(", ", configItem.DeniedPackagePrefixes)}");
 
         }
         

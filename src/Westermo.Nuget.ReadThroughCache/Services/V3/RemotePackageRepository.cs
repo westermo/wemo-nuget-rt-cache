@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using DotNext.Threading;
@@ -25,12 +26,16 @@ public class RemotePackageRepository : IRemotePackageRepository
                                    IHttpClient httpClient,
                                    ILogger<RemotePackageRepository> logger,
                                    string name,
+                                   Regex[] preferredPackagePrefixes,
+                                   Regex[] deniedPackagePrefixes,
                                    Uri serviceIndex)
     {
         m_clock = clock ?? throw new ArgumentNullException(nameof(clock));
         m_httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         m_logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Name = name ?? throw new ArgumentNullException(nameof(name));
+        PreferredPackagePrefixes = preferredPackagePrefixes ?? throw new ArgumentNullException(nameof(preferredPackagePrefixes));
+        DeniedPackagePrefixes = deniedPackagePrefixes ?? throw new ArgumentNullException(nameof(deniedPackagePrefixes));
         ServiceIndex = serviceIndex ?? throw new ArgumentNullException(nameof(serviceIndex));
 
         m_serviceIndexValues = new AsyncLazy<ServiceIndexWithTimestamp>(async cancellationToken =>
@@ -164,5 +169,7 @@ public class RemotePackageRepository : IRemotePackageRepository
     }
 
     public string Name { get; }
+    public Regex[] PreferredPackagePrefixes { get; }
+    public Regex[] DeniedPackagePrefixes { get; }
     public Uri ServiceIndex { get; }
 }
