@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -46,11 +48,27 @@ public class PackageCache : IPackageCache
         }
     }
 
+    private IEnumerable<IRemotePackageRepository> FindRemoteRepositories(string packageId)
+    {
+        // Make sure we order the package repositories by the preferred package prefixes!
+        foreach (var remotePackageRepository in m_remotePackageRepositories.OrderByDescending(rpp => rpp.PreferredPackagePrefixes.Any(ppp => ppp.IsMatch(packageId))))
+        {
+            if (remotePackageRepository.DeniedPackagePrefixes.Any(dpp => dpp.IsMatch(packageId)))
+            {
+                m_logger.LogDebug("Skipping package information for package {PackageId} in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex}), because it's denied for this remote.",
+                                  packageId, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);
+                continue;
+            }
+
+            yield return remotePackageRepository;
+        }
+    } 
+
     public Task<Stream?> GetPackageInformation(string packageId, string? semVerLevel, CancellationToken cancellationToken)
     {
         return Locked(async () =>
         {
-            foreach (var remotePackageRepository in m_remotePackageRepositories)
+            foreach (var remotePackageRepository in FindRemoteRepositories(packageId))
             {
                 var remotePackages = await remotePackageRepository.GetPackageInformation(packageId, semVerLevel, cancellationToken);
                 if (remotePackages != null)

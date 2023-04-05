@@ -30,7 +30,16 @@ public class RemotePackageRepositoryCollection : IRemotePackageRepositoryCollect
         configuration.Bind("PackageRepositories", configItems);
 
         m_remotePackageRepositories = configItems.Where(item => item.Version == 3)
-                                                 .Select(item => new RemotePackageRepository(clock, httpClient, logger, item.Name, new Uri(item.ServiceIndex, UriKind.Absolute)))
+                                                 .Select(item => new RemotePackageRepository(
+                                                             clock,
+                                                             httpClient,
+                                                             logger,
+                                                             item.Name,
+                                                             item.PreferredPackagePrefixesAsRegex,
+                                                             item.DeniedPackagePrefixesAsRegex,
+                                                             new Uri(item.ServiceIndex, UriKind.Absolute)
+                                                         )
+                                                  )
                                                  .Cast<IRemotePackageRepository>()
                                                  .ToImmutableArray();
     }

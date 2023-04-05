@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -44,7 +46,7 @@ public class PackageCache : IPackageCache
     {
         return Locked(async () =>
         {
-            foreach (var remotePackageRepository in m_remotePackageRepositories)
+            foreach (var remotePackageRepository in FindRemoteRepositories(packageId))
             {
                 var remoteVersions = await remotePackageRepository.GetPackageVersions(packageId, cancellationToken);
                 if (remoteVersions != null)
@@ -91,6 +93,7 @@ public class PackageCache : IPackageCache
             m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nupkg locally (second retry)", packageId, packageVersion);
 
             var remotePackageStream = await GetFromFirstRemote(
+                packageId,
                 async remotePackageRepository =>
                 {
                     var stream = await remotePackageRepository.GetPackageContent(packageId, packageVersion, cancellationToken);
@@ -139,6 +142,7 @@ public class PackageCache : IPackageCache
             m_logger.LogDebug("Did not find {PackageId}.{PackageVersion}.nuspec locally (second retry)", packageId, packageVersion);
 
             var remoteNuspecStream = await GetFromFirstRemote(
+                packageId,
                 async remotePackageRepository =>
                 {
                     var stream = await remotePackageRepository.GetPackageNuspec(packageId, packageVersion, cancellationToken);
@@ -161,9 +165,9 @@ public class PackageCache : IPackageCache
         }, cancellationToken);
     }
 
-    private async Task<T?> GetFromFirstRemote<T>(Func<IRemotePackageRepository, Task<T?>> action)
+    private async Task<T?> GetFromFirstRemote<T>(string packageId, Func<IRemotePackageRepository, Task<T?>> action)
     {
-        foreach (var remotePackageRepository in m_remotePackageRepositories)
+        foreach (var remotePackageRepository in FindRemoteRepositories(packageId))
         {
             m_logger.LogDebug("Testing remote index {Index}", remotePackageRepository.ServiceIndex);
             var value = await action(remotePackageRepository);
@@ -173,4 +177,20 @@ public class PackageCache : IPackageCache
         
         return default;
     }
+    
+    private IEnumerable<IRemotePackageRepository> FindRemoteRepositories(string packageId)
+    {
+        // Make sure we order the package repositories by the preferred package prefixes!
+        foreach (var remotePackageRepository in m_remotePackageRepositories.OrderByDescending(rpp => rpp.PreferredPackagePrefixes.Any(ppp => ppp.IsMatch(packageId))))
+        {
+            if (remotePackageRepository.DeniedPackagePrefixes.Any(dpp => dpp.IsMatch(packageId)))
+            {
+                m_logger.LogDebug("Skipping package information for package {PackageId} in {RemoteRepositoryName} ({RemoteRepositoryServiceIndex}), because it's denied for this remote.",
+                                  packageId, remotePackageRepository.Name, remotePackageRepository.ServiceIndex);
+                continue;
+            }
+
+            yield return remotePackageRepository;
+        }
+    } 
 }

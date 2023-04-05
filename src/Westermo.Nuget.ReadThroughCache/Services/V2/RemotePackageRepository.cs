@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Net;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
@@ -17,12 +18,16 @@ public class RemotePackageRepository : IRemotePackageRepository
     public RemotePackageRepository(IHttpClient httpClient,
                                    string name,
                                    Uri serviceIndex,
+                                   Regex[] preferredPackagePrefixes,
+                                   Regex[] deniedPackagePrefixes,
                                    ILogger<RemotePackageRepository> logger)
     {
         m_httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         m_logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Name = name ?? throw new ArgumentNullException(nameof(name));
         ServiceIndex = serviceIndex ?? throw new ArgumentNullException(nameof(serviceIndex));
+        PreferredPackagePrefixes = preferredPackagePrefixes ?? throw new ArgumentNullException(nameof(preferredPackagePrefixes));
+        DeniedPackagePrefixes = deniedPackagePrefixes ?? throw new ArgumentNullException(nameof(deniedPackagePrefixes));
     }
 
     private static readonly XNamespace s_nsAtom = XNamespace.Get("http://www.w3.org/2005/Atom");
@@ -54,4 +59,6 @@ public class RemotePackageRepository : IRemotePackageRepository
 
     public string Name { get; }
     public Uri ServiceIndex { get; }
+    public Regex[] PreferredPackagePrefixes { get; }
+    public Regex[] DeniedPackagePrefixes { get; }
 }
